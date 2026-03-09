@@ -257,7 +257,7 @@
 
 <script>
 (() => {
-  const LS_MEM_KEY = "dtt_memory_v2";
+  const LS_MEM_KEY = "dtt_memory_v3";
   const LS_ACTIVE_KEY = "dtt_active_v2";
   const LS_DAY_KEY = "dtt_day_v2";
   const LS_TRAIN_COUNT_KEY = "dtt_train_count_v1";
@@ -267,7 +267,7 @@
 
   const LIB = {
     squat: { label:"Squat", subcats:{
-      symmetric:{ label:"Symmetrisch", exercises:["Goblet Squat","Double Front Squat","Heels-Elevated Goblet (\"Hack\" Squat)"] },
+      symmetric:{ label:"Symmetrisch", exercises:["Goblet Squat","Double Front Squat","Hack Squat"] },
       asymmetric:{ label:"Asymmetrisch", exercises:["Reverse Lunge","Side Lunge / Cossack","Bulgarian Split Squat"] },
       singleleg:{ label:"Single Leg", exercises:["Step-up","Skater Squat","Box Pistol"] },
     }},
@@ -277,13 +277,13 @@
       ballistic:{ label:"Ballistic", exercises:["One-Arm Swing","Two-Arm Swing","Hand-to-Hand Swing"] },
     }},
     push: { label:"Push", subcats:{
-      horizontal:{ label:"Horizontal", exercises:["Floor Press","Push-up"] },
+      horizontal:{ label:"Horizontal", exercises:["Bridge Floor Press","Push-up","Get-Up Sit-Up"] },
       vertical:{ label:"Vertical", exercises:["Military Press","Half-Kneeling Press","Top-Down Press"] },
       ballistic:{ label:"Ballistic", exercises:["Double Push Press","Push Jerk","Viking Push Press"] },
     }},
     pull: { label:"Pull", subcats:{
       horizontal:{ label:"Horizontal", exercises:["Wide Row","Small Row","Gorilla Row"] },
-      vertical:{ label:"Vertical", exercises:["Chin-up","Pull-up","False-Grip Neutral Pull-up (ringen)"] },
+      vertical:{ label:"Vertical", exercises:["Chin-up","Pull-up","False-Grip Pull-up"] },
       ballistic:{ label:"Ballistic", exercises:["Double Clean","Snatch","High Pull"] },
     }}
   };
@@ -558,8 +558,11 @@
   function defaultMemory(){
     const mem = { lastCarry:null, patterns:{} };
     for(const p of Object.keys(LIB)){
-      mem.patterns[p] = { lastSubcat:null, lastExerciseBySubcat:{} };
-      for(const sc of Object.keys(LIB[p].subcats)) mem.patterns[p].lastExerciseBySubcat[sc] = null;
+      mem.patterns[p] = { lastSubcat:null, lastExerciseBySubcat:{}, subcatBag:[], exerciseBags:{} };
+      for(const sc of Object.keys(LIB[p].subcats)){
+        mem.patterns[p].lastExerciseBySubcat[sc] = null;
+        mem.patterns[p].exerciseBags[sc] = [];
+      }
     }
     return mem;
   }
@@ -573,9 +576,20 @@
         for(const p of Object.keys(LIB)){
           if(parsed.patterns[p]){
             mem.patterns[p].lastSubcat = parsed.patterns[p].lastSubcat ?? null;
+            if(Array.isArray(parsed.patterns[p].subcatBag)){
+              mem.patterns[p].subcatBag = parsed.patterns[p].subcatBag.filter(sc => Object.prototype.hasOwnProperty.call(LIB[p].subcats, sc));
+            }
             if(parsed.patterns[p].lastExerciseBySubcat){
               for(const sc of Object.keys(LIB[p].subcats)){
                 mem.patterns[p].lastExerciseBySubcat[sc] = parsed.patterns[p].lastExerciseBySubcat[sc] ?? null;
+              }
+            }
+            if(parsed.patterns[p].exerciseBags){
+              for(const sc of Object.keys(LIB[p].subcats)){
+                const bag = parsed.patterns[p].exerciseBags[sc];
+                if(Array.isArray(bag)){
+                  mem.patterns[p].exerciseBags[sc] = bag.filter(ex => LIB[p].subcats[sc].exercises.includes(ex));
+                }
               }
             }
           }
@@ -656,17 +670,108 @@
     localStorage.setItem(LS_LESSON_KEY, JSON.stringify(bag));
     return lesson;
   }
-  function pickSubcategory(patternKey, mem){
+  function refillSubcategoryBag(patternKey, mem){
     const subcats = Object.keys(LIB[patternKey].subcats);
     const last = mem.patterns[patternKey].lastSubcat;
-    const allowed = subcats.filter(sc => sc !== last);
-    return choice(allowed.length ? allowed : subcats);
+    let bag = shuffle(subcats);
+
+    if(last && bag.length > 1 && bag[0] === last){
+      const swapIdx = bag.findIndex(sc => sc !== last);
+      if(swapIdx > 0){
+        [bag[0], bag[swapIdx]] = [bag[swapIdx], bag[0]];
+      }
+    }
+
+    mem.patterns[patternKey].subcatBag = bag;
   }
-  function pickExercise(patternKey, subcatKey, mem){
-    const exList = LIB[patternKey].subcats[subcatKey].exercises;
+
+  function pickSubcategory(patternKey, mem){
+    const patternMem = mem.patterns[patternKey];
+    const subcats = Object.keys(LIB[patternKey].subcats);
+    if(!patternMem.subcatBag || !patternMem.subcatBag.length){
+      refillSubcategoryBag(patternKey, mem);
+    }
+
+    let bag = patternMem.subcatBag;
+    const last = patternMem.lastSubcat;
+
+    if(!bag.length){
+      refillSubcategoryBag(patternKey, mem);
+      bag = patternMem.subcatBag;
+    }
+
+    if(last && bag.length > 1 && bag[0] === last){
+      const swapIdx = bag.findIndex(sc => sc !== last);
+      if(swapIdx > 0){
+        [bag[0], bag[swapIdx]] = [bag[swapIdx], bag[0]];
+      }
+    }
+
+    let picked = bag.shift();
+
+    if(last && picked === last){
+      const fallback = subcats.find(sc => sc !== last);
+      if(fallback){
+        picked = fallback;
+        const idx = bag.indexOf(fallback);
+        if(idx >= 0) bag.splice(idx, 1);
+      }
+    }
+
+    patternMem.subcatBag = bag;
+    return picked;
+  }
+
+  function refillExerciseBag(patternKey, subcatKey, mem){
+    const exList = LIB[patternKey].subcats[subcatKey].exercises.slice();
     const lastEx = mem.patterns[patternKey].lastExerciseBySubcat[subcatKey];
-    const allowed = exList.filter(x => x !== lastEx);
-    return choice(allowed.length ? allowed : exList);
+    let bag = shuffle(exList);
+
+    if(lastEx && bag.length > 1 && bag[0] === lastEx){
+      const swapIdx = bag.findIndex(x => x !== lastEx);
+      if(swapIdx > 0){
+        [bag[0], bag[swapIdx]] = [bag[swapIdx], bag[0]];
+      }
+    }
+
+    mem.patterns[patternKey].exerciseBags[subcatKey] = bag;
+  }
+
+  function pickExercise(patternKey, subcatKey, mem){
+    const patternMem = mem.patterns[patternKey];
+    const exList = LIB[patternKey].subcats[subcatKey].exercises;
+    if(!patternMem.exerciseBags[subcatKey] || !patternMem.exerciseBags[subcatKey].length){
+      refillExerciseBag(patternKey, subcatKey, mem);
+    }
+
+    let bag = patternMem.exerciseBags[subcatKey];
+    const lastEx = patternMem.lastExerciseBySubcat[subcatKey];
+
+    if(!bag.length){
+      refillExerciseBag(patternKey, subcatKey, mem);
+      bag = patternMem.exerciseBags[subcatKey];
+    }
+
+    if(lastEx && bag.length > 1 && bag[0] === lastEx){
+      const swapIdx = bag.findIndex(x => x !== lastEx);
+      if(swapIdx > 0){
+        [bag[0], bag[swapIdx]] = [bag[swapIdx], bag[0]];
+      }
+    }
+
+    let picked = bag.shift();
+
+    if(lastEx && picked === lastEx){
+      const fallback = exList.find(x => x !== lastEx);
+      if(fallback){
+        picked = fallback;
+        const idx = bag.indexOf(fallback);
+        if(idx >= 0) bag.splice(idx, 1);
+      }
+    }
+
+    patternMem.exerciseBags[subcatKey] = bag;
+    return picked;
   }
 
   function ladderFor(item, mode){
@@ -1425,13 +1530,19 @@ function computeBand(total){
     if(a && (a.mode === 'FULL' || a.mode === 'MINI') && a.session && a.session.memNext){
       // commit memory on completion
       saveMemory(a.session.memNext);
-        const tc = loadTrainCount();
-    tc.n = (tc.n || 0) + 1;
-    // When you reset program, this goes back to 0.
-    saveTrainCount(tc);
-    updateTrainPill();
-    summaryLine = `Dag ${tc.n} / 60 voltooid.`;
-}
+      const tc = loadTrainCount();
+      tc.n = (tc.n || 0) + 1;
+      // When you reset program, this goes back to 0.
+      saveTrainCount(tc);
+      updateTrainPill();
+
+      const fs = loadFullStreak();
+      if(a.mode === 'FULL') fs.n = (fs.n || 0) + 1;
+      else fs.n = 0;
+      saveFullStreak(fs);
+
+      summaryLine = `Dag ${tc.n} / 60 voltooid.`;
+    }
 
     // If today's session was not FULL/MINI training, break FULL streak
     if(a && !(a.mode === 'FULL' || a.mode === 'MINI')){
