@@ -811,6 +811,7 @@
     const carryAllowed = CARRIES.filter(c => c !== mem.lastCarry);
     const carry = choice(carryAllowed.length ? carryAllowed : CARRIES);
     mem.lastCarry = carry;
+    saveMemory(mem);
     return { circuit, carry, memNext: mem };
   }
 
@@ -1528,8 +1529,6 @@ function computeBand(total){
     let summaryLine = "Top. Morgen weer een nieuwe gate.";
 
     if(a && (a.mode === 'FULL' || a.mode === 'MINI') && a.session && a.session.memNext){
-      // commit memory on completion
-      saveMemory(a.session.memNext);
       const tc = loadTrainCount();
       tc.n = (tc.n || 0) + 1;
       // When you reset program, this goes back to 0.
