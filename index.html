@@ -341,6 +341,60 @@
     el.innerHTML = `DTT: <strong>${n} / 60</strong>${suffix}`;
   }
 
+  function initTrainPillEditor(){
+    const el = document.getElementById("trainPill");
+    if(!el || el.dataset.longpressBound === "1") return;
+    el.dataset.longpressBound = "1";
+
+    let pressTimer = null;
+    let longPressTriggered = false;
+
+    const clearPressTimer = () => {
+      if(pressTimer){
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    };
+
+    const openCountEditor = () => {
+      longPressTriggered = true;
+      const current = (loadTrainCount().n || 0);
+      const raw = window.prompt("Set DTT teller (0-999):", String(current));
+      if(raw === null) return;
+      const parsed = Number(raw);
+      if(!Number.isFinite(parsed)) return;
+      const next = Math.max(0, Math.min(999, Math.round(parsed)));
+      const tc = loadTrainCount();
+      tc.n = next;
+      saveTrainCount(tc);
+      updateTrainPill();
+      try{ maybeShowCheckpoint(); }catch{}
+    };
+
+    const startPress = () => {
+      clearPressTimer();
+      longPressTriggered = false;
+      pressTimer = setTimeout(openCountEditor, 700);
+    };
+
+    const endPress = (e) => {
+      if(longPressTriggered && e){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      clearPressTimer();
+      setTimeout(() => { longPressTriggered = false; }, 0);
+    };
+
+    el.addEventListener("touchstart", startPress, { passive: true });
+    el.addEventListener("touchend", endPress);
+    el.addEventListener("touchcancel", endPress);
+    el.addEventListener("mousedown", startPress);
+    el.addEventListener("mouseup", endPress);
+    el.addEventListener("mouseleave", endPress);
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
   // --- Minimal modal (confirm + checkpoint)
   const appModal = document.getElementById("appModal");
   const modalTitleEl = document.getElementById("modalTitle");
@@ -500,7 +554,7 @@
   // -------------------------
   // Beep
   // -------------------------
-  function beep(times=1){
+  function beep(times=3){
     try{
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       const ctx = new AudioContext();
@@ -509,14 +563,15 @@
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.value = 880;
-        gain.gain.setValueAtTime(0.0001, now + i*0.25);
-        gain.gain.exponentialRampToValueAtTime(0.2, now + i*0.25 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + i*0.25 + 0.18);
+        osc.frequency.value = 1200; // lower freq cuts through noise better
+        gain.gain.setValueAtTime(0.0001, now + i*0.18);
+        gain.gain.exponentialRampToValueAtTime(0.6, now + i*0.18 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i*0.18 + 0.35);
         osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(now + i*0.25); osc.stop(now + i*0.25 + 0.20);
+        osc.start(now + i*0.18); 
+        osc.stop(now + i*0.18 + 0.35);
       }
-      setTimeout(() => ctx.close(), 600);
+      setTimeout(() => ctx.close(), 900);
     }catch{}
   }
 
@@ -1579,6 +1634,7 @@ function computeBand(total){
   // -------------------------
   function boot(){
     updateTrainPill();
+    initTrainPillEditor();
     
     const day = loadDayState();
     const active = loadActive();
