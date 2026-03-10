@@ -811,7 +811,6 @@
     const carryAllowed = CARRIES.filter(c => c !== mem.lastCarry);
     const carry = choice(carryAllowed.length ? carryAllowed : CARRIES);
     mem.lastCarry = carry;
-    saveMemory(mem);
     return { circuit, carry, memNext: mem };
   }
 
@@ -1072,6 +1071,12 @@ function computeBand(total){
       // create active state
       if(mode === 'FULL' || mode === 'MINI'){
         const s = generateSession();
+          // save memory and count immediately on generation
+          saveMemory(s.memNext);
+          const tc = loadTrainCount();
+          tc.n = (tc.n || 0) + 1;
+          saveTrainCount(tc);
+          updateTrainPill();
         saveActive({ day: todayKey(), mode, phase:'TRAINING', session:s, timers:{
           circuitLeft: (mode==='FULL'?DUR.fullCircuitSec:DUR.miniCircuitSec),
           carryLeft: DUR.carrySec,
@@ -1529,18 +1534,6 @@ function computeBand(total){
     let summaryLine = "Top. Morgen weer een nieuwe gate.";
 
     if(a && (a.mode === 'FULL' || a.mode === 'MINI') && a.session && a.session.memNext){
-      const tc = loadTrainCount();
-      tc.n = (tc.n || 0) + 1;
-      // When you reset program, this goes back to 0.
-      saveTrainCount(tc);
-      updateTrainPill();
-
-      const fs = loadFullStreak();
-      if(a.mode === 'FULL') fs.n = (fs.n || 0) + 1;
-      else fs.n = 0;
-      saveFullStreak(fs);
-
-      summaryLine = `Dag ${tc.n} / 60 voltooid.`;
     }
 
     // If today's session was not FULL/MINI training, break FULL streak
@@ -1622,6 +1615,12 @@ function computeBand(total){
         const mode = day.modeLocked;
         if(mode === 'FULL' || mode === 'MINI'){
           const s = generateSession();
+          // save memory and count immediately on generation
+          saveMemory(s.memNext);
+          const tc = loadTrainCount();
+          tc.n = (tc.n || 0) + 1;
+          saveTrainCount(tc);
+          updateTrainPill();
           saveActive({ day: todayKey(), mode, phase:'TRAINING', session:s, timers:{
             circuitLeft: (mode==='FULL'?DUR.fullCircuitSec:DUR.miniCircuitSec),
             carryLeft: DUR.carrySec,
