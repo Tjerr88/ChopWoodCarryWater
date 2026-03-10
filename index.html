@@ -670,37 +670,37 @@
   // -------------------------
   // Chop Wood & Carry Water — Lesson of the Day (Shuffle Bag)
   // -------------------------
-  const LS_LESSON_KEY = "cw_lessons_bag_v1";
+  const LS_LESSON_KEY = "cw_lessons_bag_v2";
 
   const LESSONS = [
-    "Focus on the process, not the reward.",
-    "You are always building your own house.",
-    "Dream big. Start small. Be ridiculously faithful.",
-    "With one eye on the goal, you lose sight of the step.",
-    "Nothing is a test; everything is a lesson.",
-    "Your value comes from who you are.",
-    "Success without meaning never satisfies.",
-    "Guard your mind against discouragement.",
-    "What went well?",
-    "There are no shortcuts to mastery.",
-    "Comparison steals joy.",
-    "The rough side shapes your character.",
-    "Words shape actions. Actions shape destiny.",
-    "Small effort cannot offset daily negativity.",
-    "Growth happens in plateaus and leaps.",
-    "Everything impacts everything.",
-    "Invisible growth precedes visible success.",
-    "Discipline is a sign you're on the right path.",
-    "Be where your feet are.",
-    "You achieve goals; you live a mission.",
-    "Release the outcome; commit to the effort.",
-    "Failure is part of greatness.",
-    "Focus on behaviors, not outcomes.",
-    "The real battle is internal.",
-    "Live by principles, not feelings.",
-    "Learn to regulate your intensity.",
-    "'They' does not exist.",
-    "You can redefine who you are."
+    "Focus on the process, not the reward. Greatness begins with faithfully executing simple daily tasks.",
+    "You are always building your own house. Who you become matters more than what you achieve.",
+    "Dream big. Start small. Be ridiculously faithful. Everyone wants greatness until it’s time to do what greatness requires.",
+    "With one eye on the goal, you only have one eye for the journey. Focus on the next step, not the summit.",
+    "Nothing is a test; everything is an opportunity to learn and grow.",
+    "Your value comes from who you are, not from what you do.",
+    "Achievement without meaning never satisfies. Success alone cannot fill an internal void.",
+    "Discouragement is the most powerful weapon. Guard your mind by choosing what you consume and how you think.",
+    "Train your brain to see what went well. Confidence grows where attention goes.",
+    "You do not shine under bright lights; bright lights reveal your work in the dark. There are no shortcuts to mastery.",
+    "Comparison steals joy. The grass is greener where you water it.",
+    "The rough side shapes your character. Hardship prepares you for sustained success.",
+    "Words create pictures. Pictures influence feelings. Feelings drive actions. Actions shape destiny.",
+    "Mental training is not a quick fix. Small efforts cannot offset daily negative habits.",
+    "Growth happens in plateaus and leaps, not in a straight line. Trust the process during stagnation.",
+    "Everything impacts everything. Mastery is total integration—every detail matters.",
+    "Invisible growth precedes visible success. Without deep roots, height cannot be sustained.",
+    "There are signs that you are on the right path—discipline, growth, and character development.",
+    "Be fully present. Presence is a decision.",
+    "You achieve goals; you live a mission. A mission gives direction when goals fade.",
+    "Release the outcome; commit to the effort. Control the controllables.",
+    "Failure is part of greatness. Persistence separates the great from the average.",
+    "Some goals seem controllable but are not. Focus on behaviors, not outcomes.",
+    "The real battle is internal. Discipline is stronger than motivation.",
+    "Live by principles, not emotions. Feelings change; principles endure.",
+    "You have an internal intensity dial. Learn to consciously turn it up and down.",
+    "‘They’ does not exist. Stop living according to imagined expectations.",
+    "Identity is shaped by choices. You can redefine who you are."
   ];
 
   function loadLessonBag(){
@@ -1165,10 +1165,10 @@ function computeBand(total){
     leftCard.innerHTML = `
 
       <h2>Vandaag</h2>
-      <div class="exercise" style="margin-bottom:10px;">
+      <div class="exercise" style="margin-bottom:18px;">
         <div class="ex-left">
           <div class="ex-title">Lesson of the Day</div>
-          <div class="ex-meta" style="font-style:italic;">"${lesson}"</div>
+          <div class="ex-meta" style="font-style:italic; line-height:1.5;">${lesson}</div>
         </div>
         <div class="pill">Reflect</div>
       </div>
