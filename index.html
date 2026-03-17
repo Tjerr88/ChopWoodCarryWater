@@ -244,6 +244,7 @@
       <span id="wakeStatus" class="pill">Wakelock: <strong>uit</strong></span>
       <span class="pill">Beep: <strong>aan</strong></span>
       <span id="modePill" class="pill">Mode: <strong>—</strong></span>
+      <span id="pullModePill" class="pill">Pull: <strong>Normal DTT</strong></span>
       <span id="trainPill" class="pill">DTT: <strong>0 / 60</strong></span>
     </div>
     <p class="small" style="margin-top:10px;">Gate 1× per dag. Sluit je de app? Dan ga je exact verder waar je was gebleven.</p>
@@ -262,8 +263,35 @@
   const LS_DAY_KEY = "dtt_day_v2";
   const LS_TRAIN_COUNT_KEY = "dtt_train_count_v1";
   const LS_FULL_STREAK_KEY = "dtt_full_streak_v1";
+  const LS_PULL_MODE_KEY = "dtt_pull_mode_v1";
 
   const DUR = { fullCircuitSec: 20*60, miniCircuitSec: 15*60, carrySec: 5*60, mobilitySec: 25*60 };
+
+  const EVERYTHING_ELSE_NORMAL = [
+    "Windmill",
+    "Bent Press",
+    "Mace 360",
+    "Shield Cast",
+    "Mace 10-2",
+    "Beast Crawl",
+    "Lateral Crawl",
+    "Dead Bug",
+    "Bird Dog",
+    "Hip Airplane"
+  ];
+
+  const EVERYTHING_ELSE_SAFE = [
+    "Windmill",
+    "Bent Press",
+    "KB Bicep Curl",
+    "Overhead Tricep Extension",
+    "Mace Dynamic Switch",
+    "Beast Crawl",
+    "Lateral Crawl",
+    "Dead Bug",
+    "Bird Dog",
+    "Hip Airplane"
+  ];
 
   const LIB = {
     squat: { label:"Squat", subcats:{
@@ -309,6 +337,7 @@
   const btnReset = document.getElementById("btnReset");
   const wakeStatus = document.getElementById("wakeStatus");
   const modePill = document.getElementById("modePill");
+  const pullModePill = document.getElementById("pullModePill");
 
   // --- Date key
   function todayKey(){
@@ -322,6 +351,23 @@
   // --- Persist helpers
   function loadJSON(k){ try{ const r = localStorage.getItem(k); return r? JSON.parse(r) : null; }catch{ return null; } }
   function saveJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+  function loadPullMode(){
+    const mode = localStorage.getItem(LS_PULL_MODE_KEY);
+    return mode === "SAFE" ? "SAFE" : "NORMAL";
+  }
+  function savePullMode(mode){
+    localStorage.setItem(LS_PULL_MODE_KEY, mode === "SAFE" ? "SAFE" : "NORMAL");
+  }
+  function updatePullModePill(){
+    const mode = loadPullMode();
+    if(pullModePill){
+      pullModePill.innerHTML = `Pull: <strong>${mode === "SAFE" ? "Lies vriendelijk" : "Normal DTT"}</strong>`;
+    }
+  }
+  function getEverythingElsePool(){
+    return loadPullMode() === "SAFE" ? EVERYTHING_ELSE_SAFE.slice() : EVERYTHING_ELSE_NORMAL.slice();
+  }
 
   // --- Training session counter (FULL/MINI only)
   function loadTrainCount(){ return loadJSON(LS_TRAIN_COUNT_KEY) || { n: 0, checkpointDone: false }; }
@@ -611,7 +657,7 @@
   // Memory model for generation
   // -------------------------
   function defaultMemory(){
-    const mem = { lastCarry:null, patterns:{} };
+    const mem = { lastCarry:null, lastEverythingElse:null, patterns:{} };
     for(const p of Object.keys(LIB)){
       mem.patterns[p] = { lastSubcat:null, lastExerciseBySubcat:{}, subcatBag:[], exerciseBags:{} };
       for(const sc of Object.keys(LIB[p].subcats)){
@@ -627,6 +673,7 @@
     const mem = defaultMemory();
     try{
       if(parsed.lastCarry) mem.lastCarry = parsed.lastCarry;
+      if(parsed.lastEverythingElse) mem.lastEverythingElse = parsed.lastEverythingElse;
       if(parsed.patterns){
         for(const p of Object.keys(LIB)){
           if(parsed.patterns[p]){
@@ -846,12 +893,21 @@
     return ladder;
   }
 
-  function generateSession(){
+  function applyPullModeReplacement(subcatKey, exercise){
+    if(loadPullMode() !== "SAFE" || subcatKey !== "vertical") return exercise;
+    if(exercise === "Pull-up") return "Mace 360";
+    if(exercise === "Chin-up") return "Shield Cast";
+    if(exercise === "False-Grip Pull-up") return "Mace 10-2";
+    return exercise;
+  }
+
+  function generateSession(mode = "MINI"){
     const mem = loadMemory();
     const picks = [];
     for(const patternKey of ["squat","hinge","push","pull"]){
       const subcatKey = pickSubcategory(patternKey, mem);
-      const ex = pickExercise(patternKey, subcatKey, mem);
+      const rawEx = pickExercise(patternKey, subcatKey, mem);
+      const ex = patternKey === "pull" ? applyPullModeReplacement(subcatKey, rawEx) : rawEx;
       picks.push({
         patternKey,
         patternLabel: LIB[patternKey].label,
@@ -860,8 +916,24 @@
         exercise: ex
       });
       mem.patterns[patternKey].lastSubcat = subcatKey;
-      mem.patterns[patternKey].lastExerciseBySubcat[subcatKey] = ex;
+      mem.patterns[patternKey].lastExerciseBySubcat[subcatKey] = rawEx;
     }
+
+    if(mode === "FULL"){
+      const pool = getEverythingElsePool();
+      let options = pool.filter(ex => ex !== mem.lastEverythingElse);
+      if(!options.length) options = pool.slice();
+      const extraExercise = choice(options);
+      picks.push({
+        patternKey: "everythingElse",
+        patternLabel: "Everything Else",
+        subcatKey: "extra",
+        subcatLabel: "Extra",
+        exercise: extraExercise
+      });
+      mem.lastEverythingElse = extraExercise;
+    }
+
     const circuit = shuffle(picks);
     const carryAllowed = CARRIES.filter(c => c !== mem.lastCarry);
     const carry = choice(carryAllowed.length ? carryAllowed : CARRIES);
@@ -1125,7 +1197,7 @@ function computeBand(total){
 
       // create active state
       if(mode === 'FULL' || mode === 'MINI'){
-        const s = generateSession();
+        const s = generateSession(mode);
           // save memory and count immediately on generation
           saveMemory(s.memNext);
           const tc = loadTrainCount();
@@ -1634,7 +1706,9 @@ function computeBand(total){
   // -------------------------
   function boot(){
     updateTrainPill();
+    updatePullModePill();
     initTrainPillEditor();
+    bindStartLongPress();
     
     const day = loadDayState();
     const active = loadActive();
@@ -1670,7 +1744,7 @@ function computeBand(total){
         // create active based on locked mode
         const mode = day.modeLocked;
         if(mode === 'FULL' || mode === 'MINI'){
-          const s = generateSession();
+          const s = generateSession(mode);
           // save memory and count immediately on generation
           saveMemory(s.memNext);
           const tc = loadTrainCount();
@@ -1700,19 +1774,87 @@ function computeBand(total){
     renderGate(null);
   }
 
+  function openPullModeSelector(){
+    openModal({
+      title: "Pull mode",
+      text: "Kies hoe de verticale pulls worden ingevuld.",
+      actionsHTML: `
+        <button id="btnModeNormal" class="btn primary">Normal DTT</button>
+        <button id="btnModeSafe" class="btn good">Lies vriendelijk</button>
+        <button id="btnModeCancel" class="btn">Sluiten</button>
+      `
+    });
+
+    document.getElementById("btnModeNormal").addEventListener("click", () => {
+      savePullMode("NORMAL");
+      updatePullModePill();
+      closeModal();
+      boot();
+    });
+
+    document.getElementById("btnModeSafe").addEventListener("click", () => {
+      savePullMode("SAFE");
+      updatePullModePill();
+      closeModal();
+      boot();
+    });
+
+    document.getElementById("btnModeCancel").addEventListener("click", () => closeModal());
+  }
+
+  function bindStartLongPress(){
+    if(btnMain.dataset.longpressBound === "1") return;
+    btnMain.dataset.longpressBound = "1";
+
+    let pressTimer = null;
+    let longPressTriggered = false;
+
+    const clearPress = () => {
+      if(pressTimer){
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    };
+
+    const startPress = () => {
+      clearPress();
+      longPressTriggered = false;
+      pressTimer = setTimeout(() => {
+        longPressTriggered = true;
+        openPullModeSelector();
+      }, 10000);
+    };
+
+    const endPress = (e) => {
+      clearPress();
+      if(longPressTriggered && e){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      setTimeout(() => { longPressTriggered = false; }, 0);
+    };
+
+    btnMain.addEventListener("touchstart", startPress, { passive: true });
+    btnMain.addEventListener("touchend", endPress);
+    btnMain.addEventListener("touchcancel", endPress);
+    btnMain.addEventListener("mousedown", startPress);
+    btnMain.addEventListener("mouseup", endPress);
+    btnMain.addEventListener("mouseleave", endPress);
+    btnMain.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
   // -------------------------
   // Main button
   // -------------------------
   btnMain.addEventListener('click', () => {
+    if(appModal && appModal.classList.contains("show")) return;
     const active = loadActive();
     const day = loadDayState();
     if(active){
-      // already routed by boot
       boot();
       return;
     }
     if(day && day.modeLocked){
-      // show locked screen
       boot();
       return;
     }
