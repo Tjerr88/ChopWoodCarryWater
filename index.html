@@ -1802,12 +1802,14 @@ function computeBand(total){
     document.getElementById("btnModeCancel").addEventListener("click", () => closeModal());
   }
 
+  let suppressStartClickUntil = 0;
+
   function bindStartLongPress(){
     if(btnMain.dataset.longpressBound === "1") return;
     btnMain.dataset.longpressBound = "1";
 
     let pressTimer = null;
-    let longPressTriggered = false;
+    let pointerIsDown = false;
 
     const clearPress = () => {
       if(pressTimer){
@@ -1816,37 +1818,52 @@ function computeBand(total){
       }
     };
 
-    const startPress = () => {
+    const startPress = (e) => {
       clearPress();
-      longPressTriggered = false;
+      pointerIsDown = true;
       pressTimer = setTimeout(() => {
-        longPressTriggered = true;
+        if(!pointerIsDown) return;
+        suppressStartClickUntil = Date.now() + 1200;
+        try{ e && e.preventDefault && e.preventDefault(); }catch{}
         openPullModeSelector();
       }, 10000);
     };
 
     const endPress = (e) => {
+      pointerIsDown = false;
       clearPress();
-      if(longPressTriggered && e){
+      if(Date.now() < suppressStartClickUntil && e){
         e.preventDefault();
         e.stopPropagation();
       }
-      setTimeout(() => { longPressTriggered = false; }, 0);
     };
 
-    btnMain.addEventListener("touchstart", startPress, { passive: true });
-    btnMain.addEventListener("touchend", endPress);
-    btnMain.addEventListener("touchcancel", endPress);
-    btnMain.addEventListener("mousedown", startPress);
-    btnMain.addEventListener("mouseup", endPress);
-    btnMain.addEventListener("mouseleave", endPress);
+    if(window.PointerEvent){
+      btnMain.addEventListener("pointerdown", startPress);
+      btnMain.addEventListener("pointerup", endPress);
+      btnMain.addEventListener("pointercancel", endPress);
+      // Do not cancel on tiny pointer drift; that made long-press unreliable.
+    } else {
+      btnMain.addEventListener("touchstart", startPress, { passive: false });
+      btnMain.addEventListener("touchend", endPress);
+      btnMain.addEventListener("touchcancel", endPress);
+      btnMain.addEventListener("mousedown", startPress);
+      btnMain.addEventListener("mouseup", endPress);
+      // Do not cancel on mouseleave for the same reason.
+    }
+
     btnMain.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
   // -------------------------
   // Main button
   // -------------------------
-  btnMain.addEventListener('click', () => {
+  btnMain.addEventListener('click', (e) => {
+    if(Date.now() < suppressStartClickUntil){
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if(appModal && appModal.classList.contains("show")) return;
     const active = loadActive();
     const day = loadDayState();
