@@ -81,7 +81,12 @@
     }
     .pill strong{ color:var(--text); }
     .grid{ display:grid; grid-template-columns: 1fr; gap:12px; }
-    @media (min-width: 880px){ .grid{ grid-template-columns: 1.2fr .8fr; } }
+    @media (min-width: 880px){ .grid{ grid-template-columns: 1fr; } }
+    #rightCard{ display:none; }
+    .sectionTitle{ font-size:15px; margin:0 0 8px; color:var(--text); }
+    .optionalCard{ opacity:.88; }
+    .optionalCard .ex-title, .optionalCard .ex-meta{ font-style:italic; }
+    .carryCard{ margin-top:0; }
 
     .hr{ height:1px; background:var(--line); margin:12px 0; }
     .small{ font-size:12px; color:var(--muted); }
@@ -239,15 +244,11 @@
   <div class="card">
     <h1>Chop Wood &amp; Carry Water</h1>
     <div class="row" style="margin-top:10px;">
-      <button id="btnMain" class="btn primary">Start</button>
+      <button id="btnMain" class="btn primary">Open sessie</button>
       <button id="btnReset" class="btn danger" title="Wist selectie-geheugen + actieve dagstatus.">Reset</button>
-      <span id="wakeStatus" class="pill">Wakelock: <strong>uit</strong></span>
-      <span class="pill">Beep: <strong>aan</strong></span>
-      <span id="modePill" class="pill">Mode: <strong>—</strong></span>
-      <span id="pullModePill" class="pill">Pull: <strong>Normal DTT</strong></span>
-      <span id="trainPill" class="pill">DTT: <strong>0 / 60</strong></span>
+      <span id="trainPill" class="pill">Practice: <strong>0 / 60</strong></span>
     </div>
-    <p class="small" style="margin-top:10px;">Gate 1× per dag. Sluit je de app? Dan ga je exact verder waar je was gebleven.</p>
+    <p class="small" style="margin-top:10px;"></p>
   </div>
 
   <div class="grid">
@@ -264,6 +265,8 @@
   const LS_TRAIN_COUNT_KEY = "dtt_train_count_v1";
   const LS_FULL_STREAK_KEY = "dtt_full_streak_v1";
   const LS_PULL_MODE_KEY = "dtt_pull_mode_v1";
+  const LS_PRACTICE_MODE_KEY = "cw_practice_mode_v1";
+  const LS_HYPERTROPHY_QUEUE_KEY = "cw_hypertrophy_queue_v1";
 
   const DUR = { fullCircuitSec: 20*60, miniCircuitSec: 15*60, carrySec: 5*60, mobilitySec: 25*60 };
 
@@ -370,11 +373,63 @@
   function updatePullModePill(){
     const mode = loadPullMode();
     if(pullModePill){
-      pullModePill.innerHTML = `Pull: <strong>${mode === "SAFE" ? "Lies vriendelijk" : "Normal DTT"}</strong>`;
+      pullModePill.innerHTML = `Pull: <strong>${mode === "SAFE" ? "Lies vriendelijk" : "Normaal"}</strong>`;
     }
   }
   function getEverythingElsePool(){
     return loadPullMode() === "SAFE" ? EVERYTHING_ELSE_SAFE.slice() : EVERYTHING_ELSE_NORMAL.slice();
+  }
+
+  function getPracticeMode(){
+    const mode = localStorage.getItem(LS_PRACTICE_MODE_KEY);
+    return mode === "progression" ? "progression" : "zen";
+  }
+  function savePracticeMode(mode){
+    localStorage.setItem(LS_PRACTICE_MODE_KEY, mode === "progression" ? "progression" : "zen");
+  }
+  function getWorkSets(practiceMode, sessionNumber){
+    if(practiceMode !== "progression") return 3;
+    const n = Math.max(1, Number(sessionNumber) || 1);
+    if(n <= 20) return 3;
+    if(n <= 40) return 4;
+    return 5;
+  }
+  function formatPrescription(item, sets){
+    const reps = item && item.subcatKey === "ballistic" ? 10 : 5;
+    return `${sets} × ${reps}`;
+  }
+  
+  const HYPERTROPHY_ORDER = ["push","hinge","pull","squat"];
+
+  function loadHypertrophyState(){
+    const saved = loadJSON(LS_HYPERTROPHY_QUEUE_KEY);
+    if(saved && saved.current){
+      return saved;
+    }
+    return { current: "push" };
+  }
+
+  function saveHypertrophyState(state){
+    saveJSON(LS_HYPERTROPHY_QUEUE_KEY, state);
+  }
+
+  function advanceHypertrophy(state){
+    const idx = HYPERTROPHY_ORDER.indexOf(state.current);
+    const next = HYPERTROPHY_ORDER[(idx + 1) % HYPERTROPHY_ORDER.length];
+    state.current = next;
+    saveHypertrophyState(state);
+  }
+
+  function isBallistic(subcatKey){
+    return subcatKey === "ballistic";
+  }
+
+  function isBallisticExtraExercise(name){
+    const ex = String(name || "").toLowerCase();
+    return ex.includes("mace") || ex.includes("swing") || ex.includes("cast") || ex.includes("10-2") || ex.includes("pullover") || ex.includes("pendulum");
+  }
+  function formatExtraPrescription(name){
+    return `2 × ${isBallisticExtraExercise(name) ? 10 : 5}`;
   }
 
   // --- Training session counter (FULL/MINI only)
@@ -392,7 +447,7 @@
     let suffix = "";
     if(n === 30) suffix = " • Halverwege";
     if(n >= 60) suffix = " • Checkpoint";
-    el.innerHTML = `DTT: <strong>${n} / 60</strong>${suffix}`;
+    el.innerHTML = `Practice: <strong>${n} / 60</strong>${suffix}`;
   }
 
   function initTrainPillEditor(){
@@ -413,7 +468,7 @@
     const openCountEditor = () => {
       longPressTriggered = true;
       const current = (loadTrainCount().n || 0);
-      const raw = window.prompt("Set DTT teller (0-999):", String(current));
+      const raw = window.prompt("Set Practice teller (0-999):", String(current));
       if(raw === null) return;
       const parsed = Number(raw);
       if(!Number.isFinite(parsed)) return;
@@ -512,7 +567,7 @@
 
     openModal({
       title: "Checkpoint (60 sessies)",
-      text: "Je hebt 60 DTT-training sessies gedaan. Tijd voor een korte check.",
+      text: "Je hebt 60 practice-sessies gedaan. Tijd voor een korte check.",
       bodyHTML: body,
       actionsHTML: actions
     });
@@ -590,7 +645,7 @@
   // Wakelock
   // -------------------------
   let wakeLock = null;
-  function setWakeStatus(on){ wakeStatus.innerHTML = `Wakelock: <strong>${on?"aan":"uit"}</strong>`; }
+  function setWakeStatus(on){ if(wakeStatus) wakeStatus.innerHTML = `Wakelock: <strong>${on?"aan":"uit"}</strong>`; }
   async function requestWakeLock(){
     try{
       if(!('wakeLock' in navigator)) { setWakeStatus(false); return; }
@@ -912,6 +967,9 @@
   function generateSession(mode = "MINI"){
     const mem = loadMemory();
     const picks = [];
+  const hypoState = loadHypertrophyState();
+  let hypertrophyPattern = hypoState.current;
+  let hypertrophyApplied = false;
     for(const patternKey of ["squat","hinge","push","pull"]){
       const subcatKey = pickSubcategory(patternKey, mem);
       const rawEx = pickExercise(patternKey, subcatKey, mem);
@@ -925,28 +983,37 @@
       });
       mem.patterns[patternKey].lastSubcat = subcatKey;
       mem.patterns[patternKey].lastExerciseBySubcat[subcatKey] = rawEx;
+  // Hypertrophy logic
+  for(let item of picks){
+    if(item.patternKey === hypertrophyPattern){
+      if(!isBallistic(item.subcatKey)){
+        item.hypertrophy = true;
+        hypertrophyApplied = true;
+      }
+      break;
+    }
+  }
+
+  if(hypertrophyApplied){
+    advanceHypertrophy(hypoState);
+  }
+
     }
 
+    let optional = null;
     if(mode === "FULL"){
       const pool = getEverythingElsePool();
       let options = pool.filter(ex => ex !== mem.lastEverythingElse);
       if(!options.length) options = pool.slice();
-      const extraExercise = choice(options);
-      picks.push({
-        patternKey: "everythingElse",
-        patternLabel: "Everything Else",
-        subcatKey: "extra",
-        subcatLabel: "Extra",
-        exercise: extraExercise
-      });
-      mem.lastEverythingElse = extraExercise;
+      optional = choice(options);
+      mem.lastEverythingElse = optional;
     }
 
     const circuit = shuffle(picks);
     const carryAllowed = CARRIES.filter(c => c !== mem.lastCarry);
     const carry = choice(carryAllowed.length ? carryAllowed : CARRIES);
     mem.lastCarry = carry;
-    return { circuit, carry, memNext: mem };
+    return { circuit, carry, optional, memNext: mem };
   }
 
   // -------------------------
@@ -1091,13 +1158,9 @@
   function clearActive(){ localStorage.removeItem(LS_ACTIVE_KEY); }
 
   function setModePill(mode){
-    let label = "—";
-    if(mode === 'FULL') label = "DTT 20+5";
-    else if(mode === 'MINI') label = "DTT 15+5";
-    else if(mode === 'RECOVERY') label = "Recovery";
-    else if(mode === 'BREATHING') label = "Breathing";
-    else if(mode === 'WALK') label = "Walk";
-    modePill.innerHTML = `Mode: <strong>${label}</strong>`;
+    if(!modePill) return;
+    modePill.style.display = 'none';
+    modePill.innerHTML = '';
   }
 
   // -------------------------
@@ -1139,7 +1202,7 @@ function computeBand(total){
           <div id="band" class="badge">—</div>
         </div>
         <div class="row">
-          <button id="btnStartSession" class="btn primary" disabled>Start sessie</button>
+          <button id="btnStartSession" class="btn primary" disabled>Open sessie</button>
           <span class="small">(na invullen van alle 3 scores)</span>
         </div>
       </div>
@@ -1212,7 +1275,7 @@ function computeBand(total){
           tc.n = (tc.n || 0) + 1;
           saveTrainCount(tc);
           updateTrainPill();
-        saveActive({ day: todayKey(), mode, phase:'TRAINING', session:s, timers:{
+        saveActive({ day: todayKey(), mode, phase:'TRAINING', session:s, practiceMode:getPracticeMode(), sessionNumber:(tc.n || 1), timers:{
           circuitLeft: (mode==='FULL'?DUR.fullCircuitSec:DUR.miniCircuitSec),
           carryLeft: DUR.carrySec,
         }});
@@ -1237,91 +1300,76 @@ function computeBand(total){
   function renderTraining(active){
     const mode = active.mode;
     const session = active.session;
-
     const lesson = drawLesson();
-
-    const circuitSec = (mode==='FULL'?DUR.fullCircuitSec:DUR.miniCircuitSec);
+    const practiceMode = active.practiceMode || "zen";
+    const sessionNumber = active.sessionNumber || (loadTrainCount().n || 1);
+    const workSets = getWorkSets(practiceMode, sessionNumber);
 
     leftCard.innerHTML = `
-
       <h2>Vandaag</h2>
+
+      <h3 class="sectionTitle">Lesson of the Day</h3>
       <div class="exercise" style="margin-bottom:18px;">
         <div class="ex-left">
-          <div class="ex-title">Lesson of the Day</div>
           <div class="ex-meta" style="font-style:italic; line-height:1.5;">${lesson}</div>
         </div>
-        <div class="pill">Reflect</div>
       </div>
+
+      <h3 class="sectionTitle">Main Training</h3>
       <div id="sessionList" style="display:grid; gap:10px;"></div>
+
+      ${mode === 'FULL' && session.optional ? `
       <div class="hr"></div>
-      <h2>Loaded Carry Finisher</h2>
-      <div class="exercise" style="align-items:center;">
+      <h3 class="sectionTitle">Optioneel</h3>
+      <div class="exercise optionalCard">
+        <div class="ex-left">
+          <div class="ex-title">${session.optional}</div>
+          <div class="ex-meta">${formatExtraPrescription(session.optional)}</div>
+        </div>
+        <div class="pill">Optional</div>
+      </div>` : ``}
+
+      <div class="hr"></div>
+      <h3 class="sectionTitle">Loaded Carry</h3>
+      <div class="exercise carryCard" style="align-items:center;">
         <div class="ex-left">
           <div class="ex-title">${session.carry}</div>
-          <div class="ex-meta">05:00 finisher • wissel zijde wanneer nodig</div>
+          <div class="ex-meta">05:00 rustig • wissel zijde wanneer nodig</div>
         </div>
         <div class="pill">5 min</div>
       </div>
+
       <div class="hr"></div>
       <div class="row">
         <button id="btnFinish" class="btn danger">Finish session</button>
       </div>
-      <p class="small" style="margin-top:8px;">Timers zijn vast: ${mode==='FULL'?'20:00':'15:00'} circuit + 05:00 carry.</p>
     `;
 
     const list = document.getElementById('sessionList');
     list.innerHTML = '';
-    session.circuit.forEach((item, idx) => {
+    session.circuit.forEach((item) => {
       const div = document.createElement('div');
       div.className = 'exercise';
       div.innerHTML = `
         <div class="ex-left">
-          <div class="ex-title">${idx+1}. ${item.exercise}</div>
-          <div class="ex-meta">${item.patternLabel} • ${item.subcatLabel} • ladder <b>${ladderFor(item, mode==='FULL'?'FULL':'MINI')}</b></div>
+          <div class="ex-title">${item.exercise}</div>
+          <div class="ex-meta">${item.patternLabel} • ${item.subcatLabel} • <b>${item.hypertrophy 
+      ? `${getWorkSets(practiceMode, sessionNumber)} × 8–12 (-1 bell)` 
+      : formatPrescription(item, workSets)
+    }</b></div>
         </div>
         <div class="pill">${item.patternLabel}</div>
       `;
       list.appendChild(div);
     });
 
-    // Timers
-    timers.circuit = makeTimer(circuitSec, (left,total) => {
-      const a = loadActive();
-      if(!a) return;
-      a.timers.circuitLeft = left;
-      saveActive(a);
-    });
-    timers.carry = makeTimer(DUR.carrySec, (left,total) => {
-      const a = loadActive();
-      if(!a) return;
-      a.timers.carryLeft = left;
-      saveActive(a);
-    });
-
-    // restore time left
-    timers.circuit.left = Math.max(0, active.timers?.circuitLeft ?? circuitSec);
-    timers.carry.left = Math.max(0, active.timers?.carryLeft ?? DUR.carrySec);
-
-    function ensureCircuitRight(){ renderRightTimer(`Circuit (${mode==='FULL'?'20:00':'15:00'})`, 'circuit'); }
-
-    function startCarry(){
-      // switch to carry panel
-      timers.carry.pause();
-      renderRightTimer('Carry (05:00)', 'carry');
-      // auto-start carry (optional). We'll keep manual start.
-    }
-
-    window.startCarry = startCarry;
-
-    // Right panel: show circuit by default
-    ensureCircuitRight();
+    renderRightNone();
     setModePill(mode);
 
     document.getElementById('btnFinish').addEventListener('click', () => {
       completeSession();
     });
 
-    // Auto wakelock only when timer started; on restore we keep off
     releaseWakeLock();
   }
 
@@ -1689,7 +1737,7 @@ function computeBand(total){
     releaseWakeLock();
 
     confettiBurst();
-    btnMain.textContent = 'Start';
+    btnMain.textContent = 'Open sessie';
     btnMain.classList.add('primary');
     setModePill('—');
     // Show summary screen
@@ -1732,13 +1780,13 @@ function computeBand(total){
 
     // if day gate is filled but no active session (user decided not to train)
     if(day && day.modeLocked){
-      btnMain.textContent = 'Resume';
+      btnMain.textContent = 'Open sessie';
       leftCard.innerHTML = `
         <h2>Gate ingevuld (${day.total}/15)</h2>
-        <p class="small">Je hebt vandaag al een gate gezet. Je kunt een sessie starten of resetten.</p>
+        <p class="small">Je hebt vandaag al een gate gezet. Je kunt je sessie openen of resetten.</p>
         <div class="hr"></div>
         <div class="row">
-          <button id="btnStartFromLock" class="btn primary">Start sessie</button>
+          <button id="btnStartFromLock" class="btn primary">Open sessie</button>
           <button id="btnResetDay" class="btn danger">Reset vandaag</button>
         </div>
       `;
@@ -1759,7 +1807,7 @@ function computeBand(total){
           tc.n = (tc.n || 0) + 1;
           saveTrainCount(tc);
           updateTrainPill();
-          saveActive({ day: todayKey(), mode, phase:'TRAINING', session:s, timers:{
+          saveActive({ day: todayKey(), mode, phase:'TRAINING', session:s, practiceMode:getPracticeMode(), sessionNumber:(tc.n || 1), timers:{
             circuitLeft: (mode==='FULL'?DUR.fullCircuitSec:DUR.miniCircuitSec),
             carryLeft: DUR.carrySec,
           }});
@@ -1778,31 +1826,30 @@ function computeBand(total){
     }
 
     // default: gate
-    btnMain.textContent = 'Start';
+    btnMain.textContent = 'Open sessie';
     renderGate(null);
   }
 
-  function openPullModeSelector(){
+  function openPracticeModeSelector(){
+    const current = getPracticeMode();
     openModal({
-      title: "Pull mode",
-      text: "Kies hoe de verticale pulls worden ingevuld.",
+      title: "Practice mode",
+      text: "Kies je practice. Zen blijft altijd op 3×5. Progression bouwt op van 3×5 naar 5×5 over 60 sessies.",
       actionsHTML: `
-        <button id="btnModeNormal" class="btn primary">Normal DTT</button>
-        <button id="btnModeSafe" class="btn good">Lies vriendelijk</button>
+        <button id="btnModeZen" class="btn primary"${current === "zen" ? ' disabled' : ''}>Zen</button>
+        <button id="btnModeProgression" class="btn good"${current === "progression" ? ' disabled' : ''}>Progression</button>
         <button id="btnModeCancel" class="btn">Sluiten</button>
       `
     });
 
-    document.getElementById("btnModeNormal").addEventListener("click", () => {
-      savePullMode("NORMAL");
-      updatePullModePill();
+    document.getElementById("btnModeZen").addEventListener("click", () => {
+      savePracticeMode("zen");
       closeModal();
       boot();
     });
 
-    document.getElementById("btnModeSafe").addEventListener("click", () => {
-      savePullMode("SAFE");
-      updatePullModePill();
+    document.getElementById("btnModeProgression").addEventListener("click", () => {
+      savePracticeMode("progression");
       closeModal();
       boot();
     });
@@ -1833,8 +1880,8 @@ function computeBand(total){
         if(!pointerIsDown) return;
         suppressStartClickUntil = Date.now() + 1200;
         try{ e && e.preventDefault && e.preventDefault(); }catch{}
-        openPullModeSelector();
-      }, 10000);
+        openPracticeModeSelector();
+      }, 700);
     };
 
     const endPress = (e) => {
@@ -1890,7 +1937,7 @@ function computeBand(total){
   btnReset.addEventListener('click', () => {
     openModal({
       title: "Program reset",
-      text: "Dit wist: selectie-geheugen, actieve sessie, gate van vandaag, én je DTT teller.",
+      text: "Dit wist: selectie-geheugen, actieve sessie, gate van vandaag, én je Practice teller.",
       bodyHTML: "",
       actionsHTML: `
         <button id="btnDoReset" class="btn danger">Reset</button>
