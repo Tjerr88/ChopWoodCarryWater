@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chop Wood &amp; Carry Water – 60 Day Practice</title>
+  <title>Chop Wood &amp; Carry Water - 60 Day Practice</title>
   <style>
     :root{
       --bg:#0e1116;
@@ -231,9 +231,9 @@
 <canvas id="confettiCanvas"></canvas>
 
 <div id="appModal" aria-hidden="true">
-  <div class="modalCard">
+  <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalText">
     <div class="modalTitle" id="modalTitle">Chop Wood &amp; Carry Water</div>
-    <p class="modalText" id="modalText">—</p>
+    <p class="modalText" id="modalText">-</p>
     <div id="modalBody"></div>
     <div class="modalRow" id="modalActions"></div>
   </div>
@@ -247,6 +247,11 @@
       <button id="btnMain" class="btn primary">Open sessie</button>
       <button id="btnReset" class="btn danger" title="Wist selectie-geheugen + actieve dagstatus.">Reset</button>
       <span id="trainPill" class="pill">Practice: <strong>0 / 60</strong></span>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <span id="modePill" class="pill" style="display:none;"></span>
+      <span id="pullModePill" class="pill">Pull: <strong>Normaal</strong></span>
+      <span id="wakeStatus" class="pill">Wakelock: <strong>uit</strong></span>
     </div>
     <p class="small" style="margin-top:10px;"></p>
   </div>
@@ -267,6 +272,8 @@
   const LS_PULL_MODE_KEY = "dtt_pull_mode_v1";
   const LS_PRACTICE_MODE_KEY = "cw_practice_mode_v1";
   const LS_HYPERTROPHY_QUEUE_KEY = "cw_hypertrophy_queue_v1";
+  const LS_LESSON_DAY_KEY = "cw_lesson_day_v1";
+  const LS_LESSON_TODAY_KEY = "cw_lesson_today_v1";
 
   const DUR = { fullCircuitSec: 20*60, miniCircuitSec: 15*60, carrySec: 5*60, mobilitySec: 25*60 };
 
@@ -380,6 +387,19 @@
     return loadPullMode() === "SAFE" ? EVERYTHING_ELSE_SAFE.slice() : EVERYTHING_ELSE_NORMAL.slice();
   }
 
+  function getTodayLesson(){
+    const today = todayKey();
+    const cachedDay = localStorage.getItem(LS_LESSON_DAY_KEY);
+    const cachedLesson = localStorage.getItem(LS_LESSON_TODAY_KEY);
+    if(cachedDay === today && cachedLesson){
+      return cachedLesson;
+    }
+    const lesson = drawLesson();
+    localStorage.setItem(LS_LESSON_DAY_KEY, today);
+    localStorage.setItem(LS_LESSON_TODAY_KEY, lesson);
+    return lesson;
+  }
+
   function getPracticeMode(){
     const mode = localStorage.getItem(LS_PRACTICE_MODE_KEY);
     return mode === "progression" ? "progression" : "zen";
@@ -396,7 +416,7 @@
   }
   function formatPrescription(item, sets){
     const reps = item && item.subcatKey === "ballistic" ? 10 : 5;
-    return `${sets} × ${reps}`;
+    return `${sets} x ${reps}`;
   }
   
   const HYPERTROPHY_ORDER = ["push","hinge","pull","squat"];
@@ -429,7 +449,7 @@
     return ex.includes("mace") || ex.includes("swing") || ex.includes("cast") || ex.includes("10-2") || ex.includes("pullover") || ex.includes("pendulum");
   }
   function formatExtraPrescription(name){
-    return `2 × ${isBallisticExtraExercise(name) ? 10 : 5}`;
+    return `2 x ${isBallisticExtraExercise(name) ? 10 : 5}`;
   }
 
   // --- Training session counter (FULL/MINI only)
@@ -519,7 +539,7 @@
     if(modalActionsEl) modalActionsEl.innerHTML = "";
   }
 
-  function openModal({title="Chop Wood & Carry Water", text="—", bodyHTML="", actionsHTML=""} = {}){
+  function openModal({title="Chop Wood & Carry Water", text="-", bodyHTML="", actionsHTML=""} = {}){
     if(!appModal) return;
     if(modalTitleEl) modalTitleEl.textContent = title;
     if(modalTextEl) modalTextEl.innerHTML = text;
@@ -555,7 +575,7 @@
         `).join("")}
       </div>
       <p class="modalText" style="margin-top:10px;">
-        Score <b>4–5</b>: je <b>mag</b> een bell omhoog. Score <b>0–3</b>: blijf nog even bij dezelfde bell.
+        Score <b>4-5</b>: je <b>mag</b> een bell omhoog. Score <b>0-3</b>: blijf nog even bij dezelfde bell.
       </p>
       <p class="modalText" id="cpResult" style="margin-top:10px;"></p>
     `;
@@ -778,14 +798,14 @@
   }
 
   // -------------------------
-  // Chop Wood & Carry Water — Lesson of the Day (Shuffle Bag)
+  // Chop Wood & Carry Water - Lesson of the Day (Shuffle Bag)
   // -------------------------
   const LS_LESSON_KEY = "cw_lessons_bag_v2";
 
   const LESSONS = [
     "Focus on the process, not the reward. Greatness begins with faithfully executing simple daily tasks.",
     "You are always building your own house. Who you become matters more than what you achieve.",
-    "Dream big. Start small. Be ridiculously faithful. Everyone wants greatness until it’s time to do what greatness requires.",
+    "Dream big. Start small. Be ridiculously faithful. Everyone wants greatness until it's time to do what greatness requires.",
     "With one eye on the goal, you only have one eye for the journey. Focus on the next step, not the summit.",
     "Nothing is a test; everything is an opportunity to learn and grow.",
     "Your value comes from who you are, not from what you do.",
@@ -798,9 +818,9 @@
     "Words create pictures. Pictures influence feelings. Feelings drive actions. Actions shape destiny.",
     "Mental training is not a quick fix. Small efforts cannot offset daily negative habits.",
     "Growth happens in plateaus and leaps, not in a straight line. Trust the process during stagnation.",
-    "Everything impacts everything. Mastery is total integration—every detail matters.",
+    "Everything impacts everything. Mastery is total integration-every detail matters.",
     "Invisible growth precedes visible success. Without deep roots, height cannot be sustained.",
-    "There are signs that you are on the right path—discipline, growth, and character development.",
+    "There are signs that you are on the right path-discipline, growth, and character development.",
     "Be fully present. Presence is a decision.",
     "You achieve goals; you live a mission. A mission gives direction when goals fade.",
     "Release the outcome; commit to the effort. Control the controllables.",
@@ -809,7 +829,7 @@
     "The real battle is internal. Discipline is stronger than motivation.",
     "Live by principles, not emotions. Feelings change; principles endure.",
     "You have an internal intensity dial. Learn to consciously turn it up and down.",
-    "‘They’ does not exist. Stop living according to imagined expectations.",
+    "'They' does not exist. Stop living according to imagined expectations.",
     "Identity is shaped by choices. You can redefine who you are."
   ];
 
@@ -967,9 +987,9 @@
   function generateSession(mode = "MINI"){
     const mem = loadMemory();
     const picks = [];
-  const hypoState = loadHypertrophyState();
-  let hypertrophyPattern = hypoState.current;
-  let hypertrophyApplied = false;
+    const hypoState = loadHypertrophyState();
+    const hypertrophyPattern = hypoState.current;
+    let hypertrophyApplied = false;
     for(const patternKey of ["squat","hinge","push","pull"]){
       const subcatKey = pickSubcategory(patternKey, mem);
       const rawEx = pickExercise(patternKey, subcatKey, mem);
@@ -983,21 +1003,19 @@
       });
       mem.patterns[patternKey].lastSubcat = subcatKey;
       mem.patterns[patternKey].lastExerciseBySubcat[subcatKey] = rawEx;
-  // Hypertrophy logic
-  for(let item of picks){
-    if(item.patternKey === hypertrophyPattern){
+    }
+
+    for(const item of picks){
+      if(item.patternKey !== hypertrophyPattern) continue;
       if(!isBallistic(item.subcatKey)){
         item.hypertrophy = true;
         hypertrophyApplied = true;
       }
       break;
     }
-  }
 
-  if(hypertrophyApplied){
-    advanceHypertrophy(hypoState);
-  }
-
+    if(hypertrophyApplied){
+      advanceHypertrophy(hypoState);
     }
 
     let optional = null;
@@ -1119,7 +1137,7 @@
       t.start(() => {
         beep(1);
         // Auto-chaining:
-        if(timerId === 'circuit'){
+        if(timerId === 'circuit' && typeof startCarry === 'function'){
           startCarry();
         }
       });
@@ -1159,8 +1177,13 @@
 
   function setModePill(mode){
     if(!modePill) return;
-    modePill.style.display = 'none';
-    modePill.innerHTML = '';
+    if(!mode || mode === "-"){
+      modePill.style.display = 'none';
+      modePill.innerHTML = '';
+      return;
+    }
+    modePill.style.display = 'inline-flex';
+    modePill.innerHTML = `Mode: <strong>${mode}</strong>`;
   }
 
   // -------------------------
@@ -1173,9 +1196,9 @@
   ];
 
 function computeBand(total){
-    if(total >= 12) return { band:'GOOD', label:'12–15', cls:'good' };
-    if(total >= 8)  return { band:'MID', label:'8–11', cls:'mid' };
-    return { band:'REC', label:'0–7', cls:'rec' };
+    if(total >= 12) return { band:'GOOD', label:'12-15', cls:'good' };
+    if(total >= 8)  return { band:'MID', label:'8-11', cls:'mid' };
+    return { band:'REC', label:'0-7', cls:'rec' };
   }
 
   function renderGate(existing){
@@ -1191,7 +1214,7 @@ function computeBand(total){
             <div class="score-row" data-gkey="${g.key}">
               ${[0,1,2,3,4,5].map(n => `<div class="score-btn" data-score="${n}">${n}</div>`).join('')}
             </div>
-            <div class="score-label" id="lbl-${g.key}">—</div>
+            <div class="score-label" id="lbl-${g.key}">-</div>
           </div>
         `).join('')}
         <div class="total">
@@ -1199,7 +1222,7 @@ function computeBand(total){
             <div class="label">Totaal</div>
             <div class="n" id="totalN">0</div>
           </div>
-          <div id="band" class="badge">—</div>
+          <div id="band" class="badge">-</div>
         </div>
         <div class="row">
           <button id="btnStartSession" class="btn primary" disabled>Open sessie</button>
@@ -1225,8 +1248,8 @@ function computeBand(total){
         const v = scores[g.key];
         const el = document.getElementById(`lbl-${g.key}`);
         if(!el) return;
-        if(typeof v === 'number') el.textContent = g.choices[v] ?? '—';
-        else el.textContent = '—';
+        if(typeof v === 'number') el.textContent = g.choices[v] ?? '-';
+        else el.textContent = '-';
       });
       btnStart.disabled = !complete;
     }
@@ -1258,7 +1281,7 @@ function computeBand(total){
       const band = computeBand(total).band;
       let mode = (band === 'GOOD') ? 'FULL' : (band === 'MID') ? 'MINI' : 'RECOVERY';
 
-      // Hard cap: after 3× FULL in a row, downgrade FULL → MINI (recovery gate day)
+      // Hard cap: after 3x FULL in a row, downgrade FULL -> MINI (recovery gate day)
       const fs = loadFullStreak();
       const forcedMini = (fs.n >= 3 && mode === 'FULL');
       if(forcedMini) mode = 'MINI';
@@ -1291,7 +1314,7 @@ function computeBand(total){
     // If you hit 60 training sessions, show the bell-up checkpoint once.
     try{ maybeShowCheckpoint(); }catch{}
 
-    setModePill('—');
+    setModePill('-');
   }
 
   // -------------------------
@@ -1300,7 +1323,7 @@ function computeBand(total){
   function renderTraining(active){
     const mode = active.mode;
     const session = active.session;
-    const lesson = drawLesson();
+    const lesson = getTodayLesson();
     const practiceMode = active.practiceMode || "zen";
     const sessionNumber = active.sessionNumber || (loadTrainCount().n || 1);
     const workSets = getWorkSets(practiceMode, sessionNumber);
@@ -1354,7 +1377,7 @@ function computeBand(total){
         <div class="ex-left">
           <div class="ex-title">${item.exercise}</div>
           <div class="ex-meta">${item.patternLabel} • ${item.subcatLabel} • <b>${item.hypertrophy 
-      ? `${getWorkSets(practiceMode, sessionNumber)} × 8–12 (-1 bell)` 
+      ? `${getWorkSets(practiceMode, sessionNumber)} x 8-12 (-1 bell)` 
       : formatPrescription(item, workSets)
     }</b></div>
         </div>
@@ -1432,7 +1455,7 @@ function computeBand(total){
     timers.mobility.left = Math.max(0, active.timers?.mobilityLeft ?? DUR.mobilitySec);
 
     renderRightTimer('Mobility (25:00)', 'mobility');
-    setModePill('RECOVERY');
+    setModePill('-');
     releaseWakeLock();
 
     document.getElementById('btnAddWalk').addEventListener('click', () => renderWalkPicker());
@@ -1473,7 +1496,7 @@ function computeBand(total){
     // If you hit 60 training sessions, show the bell-up checkpoint once.
     try{ maybeShowCheckpoint(); }catch{}
 
-    setModePill('WALK');
+    setModePill('-');
   }
 
   function renderWalk(active){
@@ -1495,7 +1518,7 @@ function computeBand(total){
     });
     timers.walk.left = Math.max(0, active.timers.walkLeft ?? 600);
     renderRightTimer('Walk', 'walk');
-    setModePill('WALK');
+    setModePill('-');
     releaseWakeLock();
 
     document.getElementById('btnBack').addEventListener('click', () => { active.phase = 'MOBILITY'; saveActive(active); boot(); });
@@ -1536,7 +1559,7 @@ function computeBand(total){
     // If you hit 60 training sessions, show the bell-up checkpoint once.
     try{ maybeShowCheckpoint(); }catch{}
 
-    setModePill('BREATHING');
+    setModePill('-');
   }
 
   const breathSeq = [
@@ -1559,7 +1582,7 @@ function computeBand(total){
           </div>
         </div>
         <div class="progress"><div id="prog"></div></div>
-        <div class="small" id="totalLeft">—</div>
+        <div class="small" id="totalLeft">-</div>
       </div>
       <div class="hr"></div>
       <div class="row">
@@ -1637,7 +1660,7 @@ function computeBand(total){
 
     // Right panel for breathing uses timers.breathing (start/pause/reset), but with wakelock
     renderRightTimer('Breathing', 'breathing');
-    setModePill('BREATHING');
+    setModePill('-');
 
     // Patch the right panel buttons to also control phaseTicker + wakelock
     const startBtn = rightInner.querySelector('#btnStart');
@@ -1739,10 +1762,20 @@ function computeBand(total){
     confettiBurst();
     btnMain.textContent = 'Open sessie';
     btnMain.classList.add('primary');
-    setModePill('—');
+    setModePill("-");
+
+    if(a){
+      const fs = loadFullStreak();
+      if(a.mode === 'FULL'){
+        fs.n = (fs.n || 0) + 1;
+      } else {
+        fs.n = 0;
+      }
+      saveFullStreak(fs);
+    }
     // Show summary screen
     leftCard.innerHTML = `
-      <h2>Session complete ✅</h2>
+      <h2>Session complete ✓</h2>
       <p class="small">${summaryLine}</p>
       <div class="hr"></div>
       <button id="btnHome" class="btn primary">Terug naar start</button>
@@ -1834,7 +1867,7 @@ function computeBand(total){
     const current = getPracticeMode();
     openModal({
       title: "Practice mode",
-      text: "Kies je practice. Zen blijft altijd op 3×5. Progression bouwt op van 3×5 naar 5×5 over 60 sessies.",
+      text: "Kies je practice. Zen blijft altijd op 3x5. Progression bouwt op van 3x5 naar 5x5 over 60 sessies.",
       actionsHTML: `
         <button id="btnModeZen" class="btn primary"${current === "zen" ? ' disabled' : ''}>Zen</button>
         <button id="btnModeProgression" class="btn good"${current === "progression" ? ' disabled' : ''}>Progression</button>
